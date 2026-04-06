@@ -1,0 +1,45 @@
+name: fork-manual-pre-commit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        path: edm4hep
+        ref: ${{ github.ref }}
+    - uses: actions/checkout@v4
+      with:
+        repository: AIDASoft/podio
+        path: podio
+    - uses: cvmfs-contrib/github-action-cvmfs@v4
+    - uses: aidasoft/run-lcg-view@v4
+      with:
+        container: el9
+        view-path: /cvmfs/sw-nightlies.hsf.org/key4hep
+        run: |
+          STARTDIR=$(pwd)
+          echo "::group::Build podio"
+          cd ${STARTDIR}/podio
+          git config --global --add safe.directory $(pwd)
+          echo "Building podio @"$(git log -1 --format=%H)
+          cmake -DCMAKE_CXX_STANDARD=20 \
+            -DENABLE_SIO=ON \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_INSTALL_PREFIX=$(pwd)/install \
+            -G Ninja -B build
+          cmake --build build --target install
+          source init.sh && source env.sh
+          echo "::endgroup::"
+          echo "::group::Run pre-commit"
+          cd ${STARTDIR}/edm4hep
+          git config --global --add safe.directory $(pwd)
+          python3 -m venv /root/pre-commit-venv
+          source /root/pre-commit-venv/bin/activate
+          pre-commit run --show-diff-on-failure \
+            --color=always \
+            --all-files
+          echo "::endgroup::"
