@@ -1,4 +1,5 @@
 name: pre-commit
+# Fork-side no-op sync commit to force workflow registration on the fork.
 
 on: [push, pull_request]
 
